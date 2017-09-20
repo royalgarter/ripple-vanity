@@ -1,0 +1,13 @@
+{
+  "name": "ripple-vanity",
+  "version": "1.1.0",
+  "private": true,
+  "dependencies": {
+    "ripple-keypairs": "^0.8.0"
+  },
+  "engines": {
+    "node": "6.*",
+    "npm": "3.*"
+  },
+  "main": "ripple-vanity.js"
+}

@@ -1,3 +1,13 @@
+# Origin source
+* [https://github.com/professorhantzen/ripple-vanity](https://github.com/professorhantzen/ripple-vanity)
+
+# Update from origin
+* Add cluster for multi core CPU usage
+* Export result to file
+* Support regex vanity string
+* Default max attemps = Math.round(Number.MAX_VALUE/2);
+* Some minor cleanup
+
 # ripple-vanity
 Simple node.js script to create Ripple "vanity" wallets.  These are secp256k1 public/private key pairs, where the public key encodes to a base58 address containing a search string.
 
@@ -19,3 +29,4 @@ String format:
 `123456789 ABCDEFGH JKLMN PQRSTUVWXYZabcdefghijk mnopqrstuvwxyz`  
 
 (Note: `0`, `I`, `O` and `l` are excluded, as per [base58](https://en.wikipedia.org/wiki/Base58) convention.)
+

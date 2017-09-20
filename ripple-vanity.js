@@ -1,50 +1,63 @@
-// ripple vanity address finder
-//
-const l 	    = console.log;
-const s 	    = process.stdout;
+const log 	    = console.log;
+const stdout    = process.stdout;
 const cr 	    = '\r\x1b[K';
-const vanity_string = process.argv[2];
-const attempts 	    = process.argv[3];
+const vanitystr = process.argv[2];
+const attempts 	= process.argv[3] || Math.round(Number.MAX_VALUE / 2);
+const cluster 	= require('cluster')
+const numCPUs 	= Math.max(1, require('os').cpus().length - 1);
+const xrpKeygen	= require('ripple-keypairs');
+const fs 		= require('fs');
 
-var kp 		= require('ripple-keypairs');
+var filename 	= 'VanityXRP_'+Math.round(new Date().getTime() / 1e3)+'.txt';
 var start_time 	= Date.now();
 var end_time 	= null;
-var valid 	= false;
-var found 	= 0;
-var usage 	= 'Ripple Vanity Address Finder v1.0\n\n'+
-		  'usage:    node ripple-vanity.js <search-string> <number-of-attempts>\n'+
-		  'example:  node ripple-vanity.js xrp 100000\n\n'+
-		  '<search-string> may be comprised of any of these characters:\n'+
+var valid 		= (vanitystr && !~vanitystr.search('(0|O|I|l)') );log('Vanity is valid:', valid);
+var regex 		= new RegExp(vanitystr, 'i');
+var found 		= 0;
+var usage 		= 'Ripple Vanity Address Finder v1.1\n\n'+
+		  'usage:    node ripple-vanity.js <search-regex> <number-of-attempts>\n'+
+		  'example:  node ripple-vanity.js "mj(i|1)" 1000000\n\n'+
+		  '<search-string> may be regex of comprised of any of these characters:\n'+
 		  '123456789 ABCDEFGH JKLMN PQRSTUVWXYZabcdefghijk mnopqrstuvwxyz\n'+
-		  '(Note: \'0\', \'I\', \'O\' and \'l\' are excluded.)';
+		  '(Note: \'0\', \'I\', \'O\' and \'l\' are excluded.)\n---\n';
 
-if(vanity_string &&
-   vanity_string.split('0').length === 1 && 
-   vanity_string.split('I').length === 1 &&
-   vanity_string.split('O').length === 1 &&
-   vanity_string.split('l').length === 1 ) valid = true;
+if (cluster.isMaster || !valid || !attempts) {
+	log(usage);
+	
+	log('Searching', attempts, 'addresses for', regex, 'with', numCPUs, "CPUs\n");
+	stdout.write(cr + '0%');
 
-if(attempts > 0 && valid) {
-	l('Searching', attempts, 'addresses for ' + '\"' + vanity_string +'\"...');
-	s.write(cr + '0%');
+	for (var i = numCPUs - 1; i >= 0; i--) {
+		cluster.fork();
+	}
+	
+	cluster.on('exit', function (deadWorker, code, signal) {
+		for (var id in cluster.workers) cluster.workers[id].process.kill();
+		process.exit();
+	});
+} else {
 	var temp_wallet = null;
 	var prog 	= (attempts/100).toFixed(0) * 1; // for speed not accuracy
 	var step 	= prog;
 	var perc 	= 0;
-	for(var i = 0; i<attempts; i++){
-		if(i == prog) {
-			s.write(cr + ++perc + '%');
+
+	for (var i = 0; i<attempts; i++){
+		if (i == prog) {
+			stdout.write(cr + ++perc + '%');
 			prog += step;
 		}
-		temp_wallet = kp.generateWallet();
-		if(temp_wallet.accountID.indexOf(vanity_string)>-1) { 
-			l(cr + i +', ' + temp_wallet.accountID + ', ' + temp_wallet.seed); 
-			found++; 
+		temp_wallet = xrpKeygen.generateWallet();
+
+		if (temp_wallet.accountID.search(regex) == 1) { 
+			log('Found:', cr + i +', ' + temp_wallet.accountID + ', ' + temp_wallet.seed); 
+			fs.appendFileSync(filename, temp_wallet.accountID+', '+temp_wallet.seed+'\n');
+			found++;
 		}
 	}
+
 	end_time = Date.now();
-	var pl = ''; if(found>1 || found === 0) pl = 'es' ;
-	l(cr + found + ' address'+pl+' found. Took ' + ((end_time-start_time)/60000).toFixed(1) + ' minutes.');
-} else {
-	l(usage);
+	var pl = (found>1 || found === 0) ? 'es' : '';
+	log(cr + found + ' address'+pl+' found. Took ' + ((end_time-start_time)/60e3).toFixed(1) + ' minutes.');
+
+	process.exit(0);
 }
